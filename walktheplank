@@ -1,0 +1,11 @@
+#!/bin/bash
+
+plankdir="${PLANK_DOCKS_DIR:-$XDG_CONFIG_HOME/plank}"
+
+#echo $plankdir
+
+for dock in $plankdir/* ; do
+    dname=$(basename "$dock")
+    [ -d "$dock"/launchers ] || continue
+    plank -n "$dname" &
+done

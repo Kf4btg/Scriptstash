@@ -1,0 +1,13 @@
+#!/bin/bash
+
+DISABLE=( 'XHCI' 'EHC1' 'EHC2' )
+
+for d in "${DISABLE[@]}";
+do
+    state=$(cat /proc/acpi/wakeup | grep $d | cut -f3 | cut -d' ' -f1 | tr -d '*')
+#    echo "device = $d, state = $state"
+    if [ "$state" == "enabled" ]
+    then
+    	echo $d > /proc/acpi/wakeup
+    fi
+done

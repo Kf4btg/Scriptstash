@@ -1,0 +1,119 @@
+#!/bin/bash
+## Author kf4btg
+## Outputs a (somewhat) pretty table of available updates on a pacman-based system.
+## Requires that the "checkupdates" utility has been run beforehand.
+
+
+## ENV Vars
+# CHECKUPDATES_DB - location of secondary database for fakeroot check
+#   default /tmp/checkup-db-[USERNAME]
+[ -z $CHECKUPDATES_DB ] && CHECKUPDATES_DB="/tmp/checkup-db-$USER"
+
+BCOLOR=1  #boolean switch for colored output
+[ -z $COLORFILE ] && COLORFILE="$HOME/.bashrc.d/bash_colors" # color escape-code reference
+TMPFILE=/tmp/_pkgupds
+
+
+## Check that alt-database exists; if not, run checkupdates to create it
+## NOTE: this is the only situation in which this script contacts the Sync repos;
+## all other queries are performed against the local DBs.
+[ -d "$CHECKUPDATES_DB" ] || checkupdates &>/dev/null
+
+## clear tempfile
+:> "$TMPFILE" 
+pacman -Qu --dbpath $CHECKUPDATES_DB 2>/dev/null > "$TMPFILE"
+
+## if there are any updates
+upd_count=$(cat "$TMPFILE" | wc -l)
+if [ $upd_count -gt 0 ] ; then
+
+    # add color to output if enabled
+    if [ $BCOLOR -gt 0 ] ; then 
+        source "$COLORFILE"
+        
+            ## Since ANSI color codes confuse the 'column' utility, we'll
+            ## columnize it beforehand then use sed to insert the color codes
+            ## into the pre-formatted table. Sed backrefs:
+            #   1      2       3         4     5        6      7
+            # (name)(spaces)(old-ver)(spaces)(arrow)(spaces)(newver)
+        
+        column -t $TMPFILE | sed -r 's/^([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)/\'${BWhite}'\1\2\'${BRed}'\3\4\'${Color_Off}'\5\6\'${BGreen}'\7\'${Color_Off}'/g' > $TMPFILE-color
+        
+        
+        echo -e "\n$(cat $TMPFILE-color)"
+
+    else
+        ## just print the results in columns
+        column -t $TMPFILE
+    fi
+fi
+
+echo; echo "Total available repo updates: $upd_count" 
+
+## and now print updates from AUR
+echo -e "\nAvailable AUR package updates:\n"
+cower --color=auto -u 2>/dev/null
+
+
+#############
+## OLD CODE
+#############
+
+
+### Declare Arrays
+## list of names of all pkgs to be updated
+#declare -a pkg_names
+## Associative arrays for old & new pkgs: <name>=<version>
+#declare -A {current,new}_pkgs 
+
+# pull current package names and vers from local database
+#while read PNAME PVER  ; do
+
+    # check that any update were actually found
+#    if [ "x$PNAME" != "x" ]; then
+#        pkg_names+=("$PNAME")
+#        current_pkgs["$PNAME"]="$PVER"
+#    fi
+
+    ## EDIT: PACMAN APPARENTLY NOW INCLUDES THE NEW VERSION BY DEFAULT
+    ## JUST BY USING THE -Qu COMMAND! THE VAST MAJORITY OF THIS
+    ## SCRIPT HAS JUST BEEN OBSOLETED!! :'D
+
+#while read PKGUPDATE ; do
+
+#    [ "x$PKGUPDATE" != "x" ] && pkg_names+=("$PKGUPDATE")
+
+#done <<<"$(pacman -Qu --dbpath $CHECKUPDATES_DB)" 2>/dev/null
+
+
+# if there are any updates
+#if [ ${#pkg_names[@]} -gt 0 ] ; then
+    # pull available vers from sync db
+    #while read PNAME NVER ; do 
+    #    new_pkgs["$PNAME"]="$NVER"
+    #done <<<"$(pacman -Sdp --print-format '%n %v' --dbpath $CHECKUPDATES_DB $(pacman -Qqu --dbpath $CHECKUPDATES_DB) )"
+
+    # print results; first to temp file, then format with column
+#    echo > $TMPFILE # clear file
+#    for p in ${pkg_names[@]}; do
+    # forget formatting in this step, just drop the info.
+    #echo "$p ${current_pkgs[$p]} -> ${new_pkgs[$p]}" >> $TMPFILE
+#   echo "$p" >> $TMPFILE
+#    done
+
+
+##-- failed experiments in coloring
+
+#echo -e "${BGreen}Total available repo updates: ${BRed}$upd_count" #${#pkg_names[@]}"
+#####################
+#echo "Total available repo updates: $upd_count" #${#pkg_names[@]}"
+####################################
+#and now print updates from AUR
+#echo -e "\n${BGreen}Available AUR package updates:\n"
+
+# cower -u --color=never > $TMPFILE 2>/dev/null
+# echo -en "\\${BBlue}"> $TMPFILE-color 
+# column -t $TMPFILE | sed -r 's/([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)$/\'${BWhite}'\1\2\'${BRed}'\3\4\'${Color_Off}'\5\6\'${BGreen}'\7\'${BBlue}'/g' >> $TMPFILE-color
+# echo -en "\\${Color_Off}" >> $TMPFILE-color 
+
+# [ $(cat "$TMPFILE" | wc -l) -gt 0 ] && echo -e "$(cat $TMPFILE-color)"

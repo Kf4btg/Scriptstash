@@ -1,0 +1,209 @@
+#!/bin/bash
+
+## this script's name
+MYNAME=$(basename "$0")
+
+## download path specification
+DLBASE=/tmp
+DLDIRNAME=$MYNAME
+DLDIR="${DLBASE}/${DLDIRNAME}"
+
+## name of output file for generated diff;
+## will be created in $DLDIR/<pkgname>
+DIFF_OUTPUT_FILE="__pbdiff"
+
+## command specification
+DIFF=( dwdiff -c -R -w\\e[7\;91m -y\\e[7m )
+# for x in "${DIFF[@]}"; do echo "$x" ; done
+# exit 0
+VIEW=less
+MERGE=${DIFFPROG:-kompare}
+
+## makes coloring output easier
+BASHCOLORS="$HOME/.config/bash_colors"
+
+## global var for PKGBUILD
+PB=""
+
+## A hacky way to have functions return something
+RETURN=0
+
+# shellcheck disable=SC2090 disable=SC2086
+main() {
+
+    [ -f "$BASHCOLORS" ] && source "$BASHCOLORS"
+
+    if [ $# -eq 0 ] ; then
+        [ -f ./PKGBUILD ] || exit_no_args
+        PB="./PKGBUILD"
+    else
+        [ -f "$1" ] && [ "$(basename $1)" == "PKGBUILD" ] || exit_not_pb "$1"
+        PB="$1"
+    fi
+
+    
+    pkgname=${PKGNAME:-$(parse_name "$PB")}
+    [ "$pkgname" == "" ] && exit_not_pb "$PB"
+
+    # pdir="$DLDIR/$pkgname"  #for testing
+    pdir=$(get_new_pb $pkgname)
+    [ -f "$pdir/PKGBUILD" ] || exit_dl_error
+    # echo "downloaded to $pdir"
+
+    # Display the diff
+    diffout="$pdir/$DIFF_OUTPUT_FILE"
+
+    "${DIFF[@]}" "$PB" "$pdir/PKGBUILD" > "$diffout"
+    # [ $? -eq 0 ] || exit 1
+
+    $VIEW "$diffout"
+
+    # prompt_replace "$pdir"
+
+    prompt_action
+    case $RETURN in
+        1) replace "$pdir" ;;
+        2) merge "$pdir" ;;
+        3) exit 0 ;;
+        *) exit_bad_response $RETURN;;
+    esac
+}
+
+# shellcheck disable=SC2090 disable=SC2086
+replace() {
+    local curr_dir="$(dirname $PB)"
+    local dl_dir="$*"
+
+    find "$dl_dir" ! \( -name "$DIFF_OUTPUT_FILE" -o -name "._pbbackup" \) -type f -exec cp -vi {} "$curr_dir/" \;
+}
+
+# shellcheck disable=SC2090 disable=SC2086 disable=SC2046
+merge() {
+    local dl_dir="$*"
+
+    # test for merge tool
+    which "${MERGE%% *}" 2> /dev/null
+    [ $? -eq 0 ] || exit_tool_not_found "merge"
+
+    local dl_file="$dl_dir/PKGBUILD"
+
+    ## make copy of PKGBUILD to check for changes
+    cp -f "$PB" "$dl_dir/._pbbackup"
+
+    $MERGE "$dl_file" "$PB"
+
+    ## check for changes
+    if echo $(md5sum "$dl_dir/._pbbackup" | cut -d" " -f1) "$PB" | md5sum --status -c ; then
+        echo -e "${BGreen}>>>${Color_Off} PKGBUILD unchanged."
+        prompt_replace "$dl_dir"
+    else
+        echo "Copying remaining downloaded files..."
+        # copy
+        local curr_dir="$(dirname $PB)"
+
+        find "$dl_dir" ! \( -name "$DIFF_OUTPUT_FILE" -o -name "._pbbackup" -o -name PKGBUILD \) -type f -exec cp -vi {} "$curr_dir/" \;
+    fi
+}
+
+# shellcheck disable=SC2090 disable=SC2086 disable=SC2034
+prompt_replace() {
+    read -n1 -p "Replace old PKGBUILD with new? [Y/n] "
+    REPLY=${REPLY:-Y}
+    # local char1=$(echo $response | cut -c1)
+
+    local curr_dir="$(dirname $PB)"
+
+    if [[ $REPLY == "y" ]] || [[ "$REPLY" == "Y" ]] ; then
+        # echo "overwriting"
+        find "$@" ! \( -name "$DIFF_OUTPUT_FILE" -o -name "._pbbackup" \) -type f -exec cp -vi {} "$curr_dir/" \;
+    fi
+}
+
+# shellcheck disable=SC2090 disable=SC2086 disable=SC2034
+prompt_action() {
+    A_REPLACE="Replace current PKGBUILD with downloaded version."
+    A_MERGE="Open external tool for manual merging."
+    A_QUIT="Exit $MYNAME"
+
+    options=( "$A_REPLACE" "$A_MERGE" "$A_QUIT" )
+    local MAX="${#options[@]}"
+
+    local yeller=$'\e[1;33m' ## well, this seems arbitrary and really hard to discover...
+    local turnitoff=$'\e[m'
+    local PS3="${yeller} >>> ${turnitoff}"
+
+    echo -e "\n ${BRed}:: How to Proceed? ::${Color_Off}"
+    print_options "${options[@]}"
+    REPLY=-1
+    while [ $REPLY -lt 0 ] || [ $REPLY -gt $MAX ] ; do
+        read -e -n1 -p "$PS3"
+        [ "$(echo $REPLY | awk '/[[:digit:]]/ {print $0}')" == "" ] && REPLY=$MAX
+        # REPLY=${$BADRESP:-$REPLY}
+    done
+    RETURN="$REPLY"
+
+    # select action in "${options[@]}"; do
+    #     RETURN=$REPLY && break;
+    # done
+}
+
+print_options() {
+    local count=1
+    for o in "$@" ; do
+        echo "$count) $o"
+        (( count+=1 ))
+    done
+
+}
+
+# shellcheck disable=SC2090 disable=SC2086
+get_new_pb() {
+    local pkg=$1
+    local pdir="$DLDIR"/$pkg
+
+    [ -d "$pdir" ] && rm -rf "$pdir"
+    mkdir -p "$pdir"
+
+    #send stdout to stderr so as not to interfere with the "returned" value
+    pbget --aur-only --dir "$DLDIR" $1 >&2
+
+    echo "$pdir"
+}
+
+parse_name() {
+    local pb="$1"
+
+    awk -F '=' '/^pkgname/ { print $2 }' "$pb"
+}
+
+exit_no_args() {
+    echo -e "  ${BRed}ERROR${Color_Off}: no arguments given. Please provide $MYNAME with the location of an existing PKGBUILD."
+    exit 99
+}
+
+exit_not_pb() {
+    echo -e "  ${BRed}ERROR${Color_Off}: $1 is not a valid PKGBUILD file."
+    exit 98
+}
+
+exit_dl_error() {
+    echo -e "  ${BRed}ERROR${Color_Off}: a problem occurred during download."
+    exit 100
+}
+
+exit_bad_response() {
+    echo -e "  ${BRed}ERROR${Color_Off}: invalid response ${BRed}$1${Color_Off}"
+    exit 101
+}
+
+exit_tool_not_found() {
+    case $1 in
+        merge) echo -e "  ${BRed}ERROR${Color_Off}: The specified mergetool ${BGreen}${MERGE%% *}${Color_Off} was not found." ;;
+        *) echo -e "  ${BRed}ERROR${Color_Off}: A required tool was not found."
+        ;;
+    esac
+    exit 102
+}
+
+# shellcheck disable=SC2048 disable=SC2086
+main $*

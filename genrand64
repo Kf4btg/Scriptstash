@@ -1,0 +1,8 @@
+#!/bin/python
+
+import random
+
+for i in range(0,64):
+    print(str(hex(random.randint(1,15)))[-1:],end="")
+
+print()

@@ -1,0 +1,4 @@
+#!/bin/bash
+for WID in $(xwininfo -root -tree | awk '/^[ ]{11}0x[0-9a-z]+ "Plasma": \("plasmashell" "plasmashell"\)/ { print $1 }'); do
+    xprop -id $WID -remove _KDE_NET_WM_SHADOW
+done  

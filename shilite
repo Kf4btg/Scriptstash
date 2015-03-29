@@ -1,0 +1,36 @@
+#!/bin/bash
+
+words=( $@ )
+
+cRed='\\e[1;4;31m'
+cOff='\\e[0m'
+#cRed=''
+seds="sed "
+i=0
+for w in "${words[@]}"; do
+    seds="${seds} -e s/$w/$cRed&$cOff/g; "
+    let i+=1
+done
+
+
+echo -e "$($seds <&0)"
+
+
+#seds="$seds'"
+#echo "$seds"
+#while IFS= read LINE; do
+#    echo $LINE
+#    echo -e "$($seds <<<$LINE)"
+#    $seds <<<"$LINE"
+#done
+
+
+#echo "$seds"
+
+#for j in "${seds[@]}"; do
+#    echo "$j"
+#done
+
+
+
+

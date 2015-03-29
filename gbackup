@@ -1,0 +1,41 @@
+#!/bin/bash
+# Usage: gbackup source1 source2... target
+
+TARGET_BASE="/home/DATA/Games/backups"
+
+getdate (){
+    ## get current time in format YYYY-MM-DD_HHMMSS-ZZZZ
+    ## (where ZZZZ is the numeric time zone (e.g. -0500))
+    local _NOW=$(date -Is | sed -e 's/T/_/' -e 's/://g')
+
+    # return this value without the time zone section
+    echo ${_NOW%-*}
+}
+
+if [ $# -gt 1 ]; then
+
+    DIR_ID=$(getdate)
+    declare -a sources
+
+    while [ $# -gt 1 ] ; do
+        sources+=("$1")
+        shift
+    done
+    
+    target_name="$1"
+    
+    full_target="${TARGET_BASE}/${target_name}/${DIR_ID}"
+    
+    mkdir -p "$full_target"
+    
+    ## do the copies individually so one bad source/copy error
+    ## doesn't negate the whole operation.
+    for s in ${sources[@]}; do
+        echo
+        echo "Backing up $s..."
+        cp -Rdp "$s" -t "$full_target"
+    done
+ 
+else
+    echo "Usage: gbackup source1 source2... backup_dir_label"
+fi

@@ -1,0 +1,154 @@
+#!/bin/bash
+## Slice a text file (generally a configuration file) into sections of
+## arbitrary length and print only those which contain a certain expression.
+
+_usage() {
+
+    read -d% -r usage <<_EOF && echo -e "$usage"
+\e[1minislice\e[0m
+    Slice a text file (generally a configuration file) into sections of
+    arbitrary length and print only those which contain a certain expression.
+
+\e[1mUsage: inislice <infile> <match> [<header>] [<sep>] [<delim>] [-<sedopts>]\e[0m
+    
+    \e[1minfile\e[0m - filename/path or "-" (without the quotes)
+        The file to parse; use - to read from stdin
+        
+    \e[1mmatch\e[0m - word, "phrase in quotes", or 'regexp'
+        Any section that does match against this parameter will not included
+        in the output. 
+            
+        This parameter, along with "header" and "sep", must be valid \e[1msed\e[0m 
+        addresses (see the manual for \e[1msed (1)\e[0m and/or \e[1msed (1p)\e[0m 
+        for more info). Usually, this means "regular expression", but 
+        technically you could also supply a line number, though that may be of
+        questionable usefulness here. It may be more useful for the "header" 
+        and "end" parameters if you know (or, perhaps, have had a script 
+        pre-calculate) the lines on which the section in question occurs. 
+        Could be handy in batch processing.
+    
+    \e[1mheader\e[0m - word, "phrase in quotes", or 'regexp' 
+        Defines lines matching this expression as the beginning of a section. 
+        Defaults to '^\[.*\]$'
+        
+    \e[1msep\e[0m - word, "phrase in quotes", or 'regexp'
+        Define what separates (ends) sections. Default is '^\s*$', a blank line
+        (or one with only spaces). Setting this parameter will also affect the
+        output section delimeter (see next paragraph on "delim").
+        
+    \e[1mdelim\e[0m - any string of characters
+        By default, output sections will be separated by a blank line--UNLESS
+        you have changed the "sep" parameter to something other than a blank line,
+        in which case the default separator will be 36 '#' characters:
+        ####################################
+        on a single line. You can change the section delimiter to any string of
+        characters you wish by specifying a value for the "delim" option.
+    
+    \e[1msedopts\e[0m: -[rsz]
+        If you supply any combination of these options, they will be passed on 
+        to the sed commands that perform the slicing.
+%
+_EOF
+                
+}
+
+inislice() {
+
+    read -r infile match header sep delim opts #<<< "$@"
+    
+    echo $infile
+    echo $match 
+    echo $header 
+    echo $sep
+    echo $delim
+    echo $opts
+    
+    ## check that input file is valid ##
+    if ! [ -r "$infile" ] ; then 
+        echo $'\e[1;31munable to read input file\e[0m'
+        exit 101 
+    elif ! [ -f "$infile" ] ; then
+        echo $'\e[1;31minput must be a regular file\e[0m'
+        exit 102
+    fi
+
+    ## PARSE! ##
+    cat "$infile" | sed -n '
+
+    #if pat is section header
+    /'${header}'/ { 
+        h #store pat in hold space
+
+        # load a full section block
+        :block
+        n   #replace pat w/ next line
+
+        /'${sep}'/ b finish  #if blank line, do not loop
+        
+        # otherwise
+        H   #add this line to hold space
+        b block # loop back look for more non-blank lines
+
+        
+        # The "grep" section: we completed a block,
+        # now check for desired contents to determine if we need to print it.
+        :finish
+        g   #replace pat w/ block contents saved in hold space 
+        /'${match}'/ {
+        p # if block contains Type=Fixed, print it
+        
+        #print the separator
+        a \
+'${delim}'
+        }
+    }
+    '
+}
+
+while getopts :m:h:s:d:o: OPT; do
+    case $OPT in
+        m)
+            "$OPTARG"
+            ;;
+        h)
+            "$OPTARG"
+            ;;
+        s)
+	    set -f
+            _sep=$OPTARG
+	    set +f
+            ;;
+        d)
+            "$OPTARG"
+            ;;
+        o)
+            "$OPTARG"
+            ;;
+        *)
+            echo "${0##*/}: unrecognized option $OPTARG"
+            exit 2
+    esac
+done
+shift $(( OPTIND - 1 ))
+OPTIND=1
+
+#infile match header sep delim opts 
+if [ $# -lt 2 ] ; then _usage
+else # call the function with supplied or default parameters
+    _infile="$1"
+    set -f
+    _match="$2"
+    _header=${3:-'^\[.*\]$'} 
+    _sep=${4:-'^\s*$'}
+    
+    # if they specified a section-ending other than "blank line"
+    if [ $# -gt 3 ] ; then
+        _delim=${5:-'####################################'}
+    else
+        _delim=''
+    fi
+#     inislice $1 $2 ${3:-'\[.*\/.*]'} ${4:-'^\s*$'} $5 $6
+    inislice <<< "$(echo $_infile $_match $_header $_sep $_delim $6)"
+    set +f
+fi
+

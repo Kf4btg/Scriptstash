@@ -1,0 +1,54 @@
+#!/bin/bash
+
+## See if active window: 
+getDbusName() {
+    qdbus | grep dolphin | while read QNAME ; do
+        if [ $(qdbus $QNAME /dolphin/Dolphin_1 org.qtproject.Qt.QWidget.isActiveWindow) == "true" ] ; then
+            echo $QNAME && break
+        fi
+    done
+}
+
+## See if terminal active:
+terminalActive() {
+    local isChecked=$(qdbus $SERVICE \
+            /dolphin/Dolphin_1/actions/show_terminal_panel \
+            org.qtproject.Qt.QAction.checked)
+
+    #  [ $DEBUG ] && echo "$isChecked" >> $DFILE
+
+    [ $isChecked == "true" ]
+}
+ 
+# Trigger terminal 
+activateTerminal() {
+    qdbus $SERVICE \
+        /dolphin/Dolphin_1/actions/show_terminal_panel \
+        org.qtproject.Qt.QAction.trigger
+}
+
+## MAIN ##
+# DEBUG=0
+# DFILE="$HOME"/test.out
+
+#  [ $DEBUG ] && echo "$1" > $DFILE
+
+REALPATH=$(readlink -m "$1") #;  [ $DEBUG ] && echo "$REALPATH" >> $DFILE
+TARGET=""
+
+if test -d "$REALPATH"; then 
+    TARGET="$REALPATH"
+elif test -r "$REALPATH"; then 
+    TARGET="$(dirname "$REALPATH")"
+fi
+
+#   [ $DEBUG ] && echo "$TARGET" >> $DFILE
+
+SERVICE=$(getDbusName) #;  [ $DEBUG ] && echo "$SERVICE" >> $DFILE
+
+$(terminalActive) || activateTerminal
+
+OBJPATH="/Sessions/1" 
+METH="org.kde.konsole.Session.runCommand"
+
+qdbus $SERVICE $OBJPATH $METH "cd '$TARGET'" #2>> $DFILE

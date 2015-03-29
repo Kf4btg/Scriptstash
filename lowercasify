@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Description: Renames files and folders to lowercase recursively
+#              from the current directory
+# Variables: Source = UPPER_DIR
+#            Destination = lowered_dir
+
+#
+# Rename all directories. This will need to be done first.
+#
+
+# Process each directory’s contents before the directory  itself
+find * -depth -type d | while IFS= read -r UPPER_DIR;
+do
+
+  # Translate Caps to Small letters
+  lowered_dir=$(echo $UPPER_DIR | tr '[A-Z]' '[a-z]');
+
+  # check if directory exits
+  if [ ! -d "$lowered_dir" ]; then
+    mkdir -p "$lowered_dir";
+  fi
+
+  # check if the source and destination is the same
+  if [ "$UPPER_DIR" != "$lowered_dir" ]; then
+
+    # check if there are files in the directory
+    # before moving it
+    if [ ! -z "$(ls $UPPER_DIR)" ]; then
+      mv -v "$UPPER_DIR/"* "$lowered_dir";
+    fi
+    rmdir "$UPPER_DIR";
+
+  fi
+
+done
+
+#
+# Rename all files
+#
+find * \( -type f -o -type l \) | while IFS= read -r UPPER_FILE;
+do
+  # Translate Caps to Small letters
+  
+  lowered_file=$(echo $UPPER_FILE | tr '[A-Z]' '[a-z]');
+  if [ "$UPPER_FILE" != "$lowered_file" ]; then
+    mv -v "$UPPER_FILE" "$lowered_file";
+  fi
+done
+
+exit 0

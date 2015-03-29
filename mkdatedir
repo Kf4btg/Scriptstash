@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# get current time in format YYYY-MM-DD_HHMMSS-ZZZZ
+# where ZZZZ is the numeric time zone (e.g. -0500)
+_NOW=$(date -Is | sed -e 's/T/_/' -e 's/://g')
+
+# return this value without the time zone section
+echo ${_NOW%-*}
+
