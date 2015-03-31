@@ -10,34 +10,34 @@ PREFIX_PATH="${WPP:-~/.local/share/wineprefixes}"
 
 winebin="${WINE:-/usr/bin/wine}"
 
-STEAM_PREFIX="newsteam"
+STEAM_PREFIX="steam"
 STEAM_LOC="drive_c/Program Files/Steam"
 
 enable_csmt() {
-	
-	cat > /tmp/d3dstream.reg <<_EOF_
+
+    cat > /tmp/d3dstream.reg <<_EOF_
 REGEDIT4
 [HKEY_CURRENT_USER\Software\Wine\DLLRedirects]
 "wined3d"="wined3d-csmt.dll"
 _EOF_
-	$winebin regedit /S /tmp/d3dstream.reg
-	rm /tmp/d3dstream.reg
+    $winebin regedit /S /tmp/d3dstream.reg
+    rm /tmp/d3dstream.reg
 }
 
 disable_csmt() {
-	
-	cat > /tmp/d3dstream.reg <<_EOF_
+
+    cat > /tmp/d3dstream.reg <<_EOF_
 REGEDIT4
 [HKEY_CURRENT_USER\Software\Wine\DLLRedirects]
 "wined3d"="wined3d.dll"
 _EOF_
-	$winebin regedit /S /tmp/d3dstream.reg
-	rm /tmp/d3dstream.reg
+    $winebin regedit /S /tmp/d3dstream.reg
+    rm /tmp/d3dstream.reg
 }
 
 install_steam() {
-	cp -av "${PREFIX_PATH}/${STEAM_PREFIX}/${STEAM_LOC}" "${WINEPREFIX}/${STEAM_LOC}"
-	winetricks --force --no-isolate steam
+    cp -av "${PREFIX_PATH}/${STEAM_PREFIX}/${STEAM_LOC}" "${WINEPREFIX}/${STEAM_LOC}"
+    winetricks --force --no-isolate steam
 }
 
 get_wine_bin(){
@@ -53,14 +53,14 @@ get_wine_bin(){
         [ "$o" == '/usr' ] && disp_opts[$i]="system default" && continue
         disp_opts[$i]="$(basename $o)"
     done
-    
+
     local PS3="#> "
     select wbin in "${disp_opts[@]}"; do
          [ ! -z "$wbin" ] && wbin="${wbin_options[$REPLY-1]}" && break
     done
-    
+
     test -z "$wbin" && echo "WINE var unchanged ($WINE)" && return
-    
+
     WINE="$wbin/bin/wine"
 #     export WINE
     echo "WINE=$WINE"
@@ -68,7 +68,7 @@ get_wine_bin(){
 
 select_wine_prefix() {
     Plist=( $(find $WPP/ -mindepth 1 -maxdepth 1 -type d ) )
-    
+
     local PS3="==> Select desired wineprefix: "
     declare -a options
     options[0]="Create new..."
@@ -79,7 +79,7 @@ select_wine_prefix() {
         if [[ -z "$WINEPREFIX" && ( "$(echo $PWD | cut -d '/' -f 1-5)" == "${PREFIX_PATH}/${options[$i]}" ) ]] ; then
             #export WINEPREFIX="$PREFIX_PATH/${options[$i]}"
             echo "export WINEPREFIX=$PREFIX_PATH/${options[$i]}" > "$OUTFILE"
-            
+
 #             echo "WINEPREFIX set to $WINEPREFIX"
 #             echo "  (run wprefix_set again to change)"
             return
@@ -90,7 +90,7 @@ select_wine_prefix() {
     select prefix in "${options[@]}"; do
         [ 1 -lt $REPLY ] && [ $(( $REPLY-1 )) -le "${#Plist[@]}" ] && \
             echo "export WINEPREFIX=${Plist[$REPLY-2]}" > "$OUTFILE" && break
-			
+
         [ $REPLY -eq 1 ] && new_prefix && break
         echo -e "\nInvalid selection. Please try again.\n" >&2
     done
@@ -138,15 +138,15 @@ cmd="exit 111"
 OUTFILE=/dev/fd/1 #stdout by default
 while getopts :bcdinsho: OPT; do
     case $OPT in
-	c)
-	    cmd=enable_csmt
-	    ;;
-	d)
-	    cmd=disable_csmt
-	    ;;
-	i)
-	    cmd=install_steam
-	    ;;
+    c)
+        cmd=enable_csmt
+        ;;
+    d)
+        cmd=disable_csmt
+        ;;
+    i)
+        cmd=install_steam
+        ;;
     b)
         cmd=get_wine_bin
         ;;
@@ -163,9 +163,9 @@ while getopts :bcdinsho: OPT; do
     o)
         OUTFILE="$OPTARG"
         ;;
-	*)
-	    echo -e "usage: ${0##*/} -[bcdins]" $Usage
-	    exit 2
+    *)
+        echo -e "usage: ${0##*/} -[bcdins]" $Usage
+        exit 2
     esac
 
 done
