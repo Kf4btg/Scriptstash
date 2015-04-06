@@ -1,18 +1,27 @@
 #!/bin/bash
-
+# set -x
+SCREENW=1920
+NUM_SCREENS=2
 MAIN_BG_PATH="/home/datadir/DesktopPictures/WSdark"
 FS_RATIO_BG_PATH="$MAIN_BG_PATH/4to3"
 RSCREEN_BG_PATH="$MAIN_BG_PATH"/../right_dark
 
-## define static BG here
-BG1=
-BG2=
-#/home/datadir/DesktopPictures/emacs-ref-edit.png
-
-[ -z "$BG1" ] && BG1="$(find $MAIN_BG_PATH -maxdepth 1 \( -iname *.png -o -iname *.jpg \) | shuf -n1 )"
-[ -z "$BG2" ] && BG2="$(find $RSCREEN_BG_PATH -maxdepth 1 \( -iname *.png -o -iname *.jpg \) | shuf -n1 )"
-
 # DISPLAY is not set when run as cronjob
 [ -z "$DISPLAY" ] && DISPLAY=:0
 
-DISPLAY=$DISPLAY feh --bg-fill "$BG1" "$BG2"
+## define static BG here
+#/home/datadir/DesktopPictures/emacs-ref-edit.png
+BG1=
+BG2=
+
+[ -z "$BG1" ] && BG1="$(find $MAIN_BG_PATH -maxdepth 1 \( -iname '*.png' -o -iname '*.jpg' \) | shuf -n1 )"
+
+if [[ $(identify -format %w "$BG1") -ge $((SCREENW*NUM_SCREENS)) ]] ; then
+    #     echo "dual screen: $BG1"
+    DISPLAY=$DISPLAY feh --bg-fill --no-xinerama "$BG1"
+else
+    #     echo "1 screen: $BG1"
+    [ -z "$BG2" ] && BG2="$(find $RSCREEN_BG_PATH -maxdepth 1 \( -iname '*.png' -o -iname '*.jpg' \) | shuf -n1 )"
+    DISPLAY=$DISPLAY feh --bg-fill "$BG1" "$BG2"
+
+fi
