@@ -2,6 +2,13 @@
 ## Slice a text file (generally a configuration file) into sections of
 ## arbitrary length and print only those which contain a certain expression.
 
+## TODO: next time I think of a nifty idea for script, remember to check
+##       MUCH MORE THOROUGHLY--BEFORE spending hours writing and hacking
+##       tearing my hair out--that there isn't already a core-util 
+##       preinstalled on pretty much every Linux system that already does
+##       exactly this, but better........
+##       Well, at least I learned a lot about sed.
+
 _usage() {
 
     read -d% -r usage <<_EOF && echo -e "$usage"
@@ -105,32 +112,32 @@ inislice() {
     '
 }
 
-while getopts :m:h:s:d:o: OPT; do
-    case $OPT in
-        m)
-            "$OPTARG"
-            ;;
-        h)
-            "$OPTARG"
-            ;;
-        s)
-	    set -f
-            _sep=$OPTARG
-	    set +f
-            ;;
-        d)
-            "$OPTARG"
-            ;;
-        o)
-            "$OPTARG"
-            ;;
-        *)
-            echo "${0##*/}: unrecognized option $OPTARG"
-            exit 2
-    esac
-done
-shift $(( OPTIND - 1 ))
-OPTIND=1
+# while getopts :m:h:s:d:o: OPT; do
+#     case $OPT in
+#         m)
+#             "$OPTARG"
+#             ;;
+#         h)
+#             "$OPTARG"
+#             ;;
+#         s)
+# 	    set -f
+#             _sep=$OPTARG
+# 	    set +f
+#             ;;
+#         d)
+#             "$OPTARG"
+#             ;;
+#         o)
+#             "$OPTARG"
+#             ;;
+#         *)
+#             echo "${0##*/}: unrecognized option $OPTARG"
+#             exit 2
+#     esac
+# done
+# shift $(( OPTIND - 1 ))
+# OPTIND=1
 
 #infile match header sep delim opts 
 if [ $# -lt 2 ] ; then _usage
