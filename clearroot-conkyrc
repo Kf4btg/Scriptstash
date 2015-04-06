@@ -1,0 +1,54 @@
+## Background de-blanker, by Kf4btg {A} Github
+# --A bare-bones conkyrc which creates a pseudo-
+# transparent desktop window; i.e. one that draws onto itself 
+# whatever is drawn to the *real* root window below , the latter being
+# hidden when using certain compositors like KWin. 
+# This way, should one not wish to run a desktop-environment like Plasma
+# nor one of the file-managers that controls the desktop (e.g. Nautilus,
+# PCManFm), one can still have a nice personalized desktop wallpaper
+# by using this along with an external tool like feh, nitrogen, or xsetroot
+# to set the background image.
+ 
+# TODO: get rid of some of the cruft in here.
+# TODO: wrap it up in a script with some handy options
+# TODO: See if the concept can't be made independent of conky,
+#       maybe even just pull the corresponding code out of conky,
+#       since we don't need the vast majority of it's features for this.
+
+background yes
+use_xft no
+# xftfont Roboto:size=9
+# xftalpha 0.8
+update_interval 3600
+total_run_times 0
+own_window yes
+own_window_type desktop 
+own_window_transparent yes
+# own_window_hints undecorated,below,sticky,skip_taskbar,skip_pager
+double_buffer yes
+draw_shades no
+draw_outline no
+draw_borders no
+draw_graph_borders no
+stippled_borders 0
+border_inner_margin 0
+border_outer_margin 0
+border_width 0
+default_color 000000
+default_shade_color 000000
+default_outline_color 000000
+minimum_size 3840 1080
+# maximum_width 1080
+gap_x 0
+# FIXME: figure out why it has the gap at the bottom requiring use of this offset
+gap_y 33
+alignment tl
+no_buffers yes
+# text_buffer_size 2048
+use_spacer none
+# override_utf8_locale yes
+
+own_window_argb_value 0
+own_window_argb_visual no
+own_window_colour 000000
+TEXT

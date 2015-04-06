@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+Encoding=UTF-8
+ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-Priority=TopLevel
+Icon=create-link
+MimeType=all/all
+Actions=FollowLink
+
+[Desktop Action FollowLink]
+Name=Go to original
+Exec=$UDATA/scripts/goto_link_loc_dbus %f
+Icon=folder-open

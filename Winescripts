@@ -36,6 +36,8 @@ _EOF_
 }
 
 install_steam() {
+	echo "about to copy steam from ${PREFIX_PATH}/${STEAM_PREFIX}/${STEAM_LOC} to ${WINEPREFIX}/${STEAM_LOC}"
+	read -n1 -p "hit enter to continue..."
     cp -av "${PREFIX_PATH}/${STEAM_PREFIX}/${STEAM_LOC}" "${WINEPREFIX}/${STEAM_LOC}"
     winetricks --force --no-isolate steam
 }

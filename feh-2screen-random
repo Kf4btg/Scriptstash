@@ -1,0 +1,11 @@
+#!/bin/bash
+
+MAIN_BG_PATH="/home/datadir/DesktopPictures"
+FS_RATIO_BG_PATH="$MAIN_BG_PATH/4to3"
+RSCREEN_BG_PATH="$MAIN_BG_PATH"/right_dark
+
+# DISPLAY is not set when run as cronjob
+[ -z "$DISPLAY" ] && DISPLAY=:0
+
+DISPLAY=$DISPLAY feh --bg-fill "$(find $MAIN_BG_PATH -maxdepth 1 \( -iname *.png -o -iname *.jpg \) | shuf -n1 )" "$(find $RSCREEN_BG_PATH -maxdepth 1 \( -iname *.png -o -iname *.jpg \) | shuf -n1 )"
+
