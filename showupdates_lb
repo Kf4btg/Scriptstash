@@ -1,0 +1,242 @@
+#!/bin/bash
+## Author kf4btg
+## Outputs a pretty table of available updates on a pacman-based system.
+## Requires that the "checkupdates" utility has been run beforehand.
+
+## Playing with little_boxes[1] for silly fancy output (therefore this
+## now requires little_boxes for the AUR output).
+##
+## [1]https://github.com/giodamelio/little_boxes
+
+
+## ENV Vars
+# CHECKUPDATES_DB - location of secondary database for fakeroot check
+#   default /tmp/checkup-db-[USERNAME]
+CHECKUPDATES_DB="/tmp/checkup-db-$USER"
+
+## boolean switch for colored output
+### TODO: make a command-line switch
+BCOLOR=${SHUPS_USE_COLOR:-1}
+## place to dump updates before displaying them
+TMPFILE=/tmp/_pkgupds
+
+# AUR package cache directory
+D_PKGCACHE=/home/DATA/pkgcache
+
+# define default options
+typeset -A Uoptions
+Uoptions['U']=1  # show repo updates
+Uoptions['A']=1  # show AUR updates
+Uoptions['C']=0  # use cached results for AUR updates
+
+updates() {
+    ## Check that alt-database exists; if not, run checkupdates to create it
+    [ -d "$CHECKUPDATES_DB" ] || checkupdates &>/dev/null
+
+    ## clear tempfile
+    :> "$TMPFILE" 
+    pacman -Qu --dbpath $CHECKUPDATES_DB 2>/dev/null > "$TMPFILE"
+
+    ## if there are any updates
+    upd_count=$(cat "$TMPFILE" | wc -l)
+    if [ $upd_count -gt 0 ] ; then
+
+        ## add color to output if enabled
+        if [ $BCOLOR -gt 0 ] ; then
+
+            ## source the bash color-defs file
+            source $HOME/.profile.d/bash_colors 
+            
+                ## Since ANSI color codes confuse the 'column' utility, we'll
+                ## columnize it beforehand then use sed to insert the color codes
+                ## into the pre-formatted table. Sed backrefs:
+                #   1      2       3         4     5        6      7
+                # (name)(spaces)(old-ver)(spaces)(arrow)(spaces)(newver)
+            
+            column -t $TMPFILE | sed -r 's/^([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)/\'"\e[1m"'\1\2\'${BRed}'\3\4\'${Color_Off}'\5\6\'${BGreen}'\7\'${Color_Off}'/g' > $TMPFILE-color
+            
+            
+            echo -e "\n$(cat $TMPFILE-color)"
+            
+
+        else
+            ## just print the results in columns
+            column -t $TMPFILE
+            # let's try something silly
+    #        column -t $TMPFILE | little_boxes -t "Total available repo updates: $upd_count"
+        fi
+    fi
+    #else
+        echo -e "Total available repo updates: $upd_count\n"
+    #fi
+
+    #echo; echo "Total available repo updates: $upd_count" 
+}
+
+aurpdates() {
+    ## and now print updates from AUR
+    BOLD=$'\033[1m'
+    RED=$'\033[1;31m'
+    GREEN=$'\033[1;32m'
+    OFF=$'\033[0m'
+
+    
+    [[ ${Uoptions['C']} -eq 0 ]] && package-query -Au | sed -r 's#aur/##g' > "$D_PKGCACHE/.aurupdates"
+
+    #echo -e "\n$(package-query -Au | sed -r 's#aur/##g' | column -o'   ' -t)\n" \
+        echo -e "\n$(column -o'   ' -t < "$D_PKGCACHE/.aurupdates" )\n" \
+    | little_boxes -c double -t "Available updates to AUR packages" \
+    | awk 'NR==1 { printf "%s %s",$1,"'$BOLD'"; for (i=2;i<NF;i++) printf "%s ",$i ; print "'$OFF'" $NF }
+            NF==2 {print;}
+            /->/ {
+            split($0, flds, FS, seps)
+            printf "%s%s%s%s'$RED'%s'$OFF'%s%s%s'$GREEN'%s'$OFF'%s%s\n",
+                    flds[1],seps[1], # left side of box + first space
+                    flds[2],seps[2], # package name, spaces
+                    flds[3],seps[3], # installed version, spaces
+                    flds[4],seps[4], # arrow, spaces
+                    flds[5],seps[5],flds[6] # available version, spaces, right side of box
+    } END {print}'
+}
+
+__ScriptVersion="0.5"
+
+#===  FUNCTION  ================================================================
+#         NAME:  usage
+#  DESCRIPTION:  Display usage information.
+#===============================================================================
+function usage ()
+{
+    echo "Usage :  $0 [options]
+    Show available package upgrades from repos and the AUR
+
+    Options:
+    -a      aur-only    Only display aur-package updates
+    -A      no-aur      Do not display aur-package updates
+    -c      use-cache   Do not check for updates from AUR; instead,
+                            display cached results from last check.
+    
+    -h      help        Display this message
+    -v      version     Display script version"
+
+}    # ----------  end of function usage  ----------
+
+#-----------------------------------------------------------------------
+#  Handle command line arguments
+#-----------------------------------------------------------------------
+
+while getopts ":hvaAc" opt
+do
+  case $opt in
+    a) Uoptions['U']=0 ;;
+
+    A) Uoptions['A']=0 ;;
+
+    c) Uoptions['C']=1 ;;
+
+    h  )  usage; exit 0   ;;
+
+    v  )  echo "$0 -- Version $__ScriptVersion"; exit 0   ;;
+
+    * )  echo -e "\n  Option does not exist : $OPTARG\n"
+          usage; exit 1   ;;
+
+  esac    # --- end of case ---
+done
+shift $(($OPTIND-1))
+
+
+[[ ${Uoptions['U']} -gt 0 ]] && updates
+[[ ${Uoptions['A']} -gt 0 ]] && aurpdates
+
+
+#############
+## OLD CODE
+#############
+
+
+### Declare Arrays
+## list of names of all pkgs to be updated
+#declare -a pkg_names
+## Associative arrays for old & new pkgs: <name>=<version>
+#declare -A {current,new}_pkgs 
+
+# pull current package names and vers from local database
+#while read PNAME PVER  ; do
+
+    # check that any update were actually found
+#    if [ "x$PNAME" != "x" ]; then
+#        pkg_names+=("$PNAME")
+#        current_pkgs["$PNAME"]="$PVER"
+#    fi
+
+    ## EDIT: PACMAN APPARENTLY NOW INCLUDES THE NEW VERSION BY DEFAULT
+    ## JUST BY USING THE -Qu COMMAND. IT IS NO LONGER NECESSARY
+    ## TO RETRIEVE THE NEW VERSION WITH A SECOND COMMAND!!
+
+#while read PKGUPDATE ; do
+
+#    [ "x$PKGUPDATE" != "x" ] && pkg_names+=("$PKGUPDATE")
+
+#done <<<"$(pacman -Qu --dbpath $CHECKUPDATES_DB)" 2>/dev/null
+
+
+######################
+
+#if [ ${#pkg_names[@]} -gt 0 ] ; then
+    # pull available vers from sync db
+    #while read PNAME NVER ; do 
+    #    new_pkgs["$PNAME"]="$NVER"
+    #done <<<"$(pacman -Sdp --print-format '%n %v' --dbpath $CHECKUPDATES_DB $(pacman -Qqu --dbpath $CHECKUPDATES_DB) )"
+
+    # print results; first to temp file, then format with column
+#    echo > $TMPFILE # clear file
+#    for p in ${pkg_names[@]}; do
+	# forget formatting in this step, just drop the info.
+	#echo "$p ${current_pkgs[$p]} -> ${new_pkgs[$p]}" >> $TMPFILE
+#	echo "$p" >> $TMPFILE
+#    done
+
+
+###############################
+#echo -e "${BGreen}Total available repo updates: ${BRed}$upd_count" #${#pkg_names[@]}"
+#####################
+#echo "Total available repo updates: $upd_count" #${#pkg_names[@]}"
+####################################
+#and now print updates from AUR
+#echo -e "\n${BGreen}Available AUR package updates:\n"
+
+# cower -u --color=never > $TMPFILE 2>/dev/null
+# echo -en "\\${BBlue}"> $TMPFILE-color 
+# column -t $TMPFILE | sed -r 's/([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)$/\'${BWhite}'\1\2\'${BRed}'\3\4\'${Color_Off}'\5\6\'${BGreen}'\7\'${BBlue}'/g' >> $TMPFILE-color
+# echo -en "\\${Color_Off}" >> $TMPFILE-color 
+
+# [ $(cat "$TMPFILE" | wc -l) -gt 0 ] && echo -e "$(cat $TMPFILE-color)"
+
+
+#cower -u 2>/dev/null
+
+#package-query --color --aur-url "https://aur4.archlinux.org" -Au | sed -r 's#aur/##g'
+
+
+#source $HOME/.profile.d/bash_colors 
+#aurpdates="$(package-query --color --aur-url "https://aur4.archlinux.org" -Au | sed -r 's#aur/##g' | column -t)"
+
+
+#echo -e "\nAvailable AUR package updates:\n"
+
+## SUCCESS!! A MESS!! BUT SUCCESS!!!
+## And no tempfile needed! (maybe change the earlier version to do this as well)
+##(those last 5 lines are the colors; variables didn't work so well...)
+#package-query -Au | sed -r 's#aur/##g' | column -t \
+#    | little_boxes -t "Available AUR package updates:" \
+#	| sed -r '/->/ s/^.([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)/\'\
+#$'\e[1m''\1\2\'\
+#$'\e[1;31m''\3\4\'\
+#$'\e[0m''\5\6\'\
+#$'\e[1;32m''\7\'\
+#$'\e[0m''/g'
+
+
+
+

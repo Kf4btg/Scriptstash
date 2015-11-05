@@ -1,0 +1,21 @@
+#!/bin/sh
+#set -x 
+
+argc=$#
+#cmd='feh -xd -B black -g 1600x900'
+cmd='feh -d -B black -g 1600x900'
+
+case $argc in 
+    0)  $cmd . ;; 
+    1)  arg="$1"
+        if test -d "$arg" ; then $cmd "$arg"
+        elif test -f "$arg" ; then
+            dirnm=$(dirname "$arg")
+            $cmd --start-at "${arg}" "$dirnm"
+        fi
+        ;;
+    *)  $cmd "$@" ;;
+esac
+
+
+

@@ -71,7 +71,9 @@ inislice() {
     echo $opts
     
     ## check that input file is valid ##
-    if ! [ -r "$infile" ] ; then 
+    if [[ "$infile" == "-" ]] ; then
+        infile=/dev/fd/0
+    elif ! [ -r "$infile" ] ; then 
         echo $'\e[1;31munable to read input file\e[0m'
         exit 101 
     elif ! [ -f "$infile" ] ; then

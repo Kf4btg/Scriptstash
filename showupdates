@@ -52,7 +52,8 @@ echo; echo "Total available repo updates: $upd_count"
 
 ## and now print updates from AUR
 echo -e "\nAvailable AUR package updates:\n"
-cower --color=auto -u 2>/dev/null
+#cower --color=auto -u 2>/dev/null
+package-query -Au --aur-url="https://aur4.archlinux.org"
 
 
 #############

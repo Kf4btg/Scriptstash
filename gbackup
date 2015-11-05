@@ -17,12 +17,15 @@ if [ $# -gt 1 ]; then
     DIR_ID=$(getdate)
     declare -a sources
 
-    while [ $# -gt 1 ] ; do
-        sources+=("$1")
-        shift
-    done
-    
     target_name="$1"
+    shift
+    sources=( "$@" )
+
+    #while [ $# -gt 0 ] ; do
+        #sources+=("$1")
+        #shift
+    #done
+    
     
     full_target="${TARGET_BASE}/${target_name}/${DIR_ID}"
     
@@ -30,12 +33,12 @@ if [ $# -gt 1 ]; then
     
     ## do the copies individually so one bad source/copy error
     ## doesn't negate the whole operation.
-    for s in ${sources[@]}; do
+    for s in "${sources[@]}"; do
         echo
         echo "Backing up $s..."
         cp -Rdp "$s" -t "$full_target"
     done
  
 else
-    echo "Usage: gbackup source1 source2... backup_dir_label"
+    echo "Usage: gbackup backup_dir_label source1 [source2 ...]"
 fi
