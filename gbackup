@@ -1,7 +1,7 @@
 #!/bin/bash
-# Usage: gbackup source1 source2... target
+# Usage: gbackup backup_dir_label source1 source2
 
-TARGET_BASE="/home/DATA/Games/backups"
+TARGET_BASE="${JENV_GBACKUP_DIR:-/home/DATA/Games/backups}"
 
 getdate (){
     ## get current time in format YYYY-MM-DD_HHMMSS-ZZZZ

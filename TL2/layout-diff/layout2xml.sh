@@ -2,13 +2,15 @@
 
 #=== GLOBALS ========================================
 #====================================================
-__ScriptVersion="1.0"
+__ScriptVersion="1.2"
 __script_name="$(basename "$0")"
 
 # hack in location of python-sorter-script
 PYSORTER="$(dirname "$0")"/layout-xml-sorter.py
 
-TL2DIR="${TL2DIR:-/home/DATA/Games/WineSteamberry/Torchlight II}"
+#FIXME: clean this up
+_gamesdir="${JENV_GAMES:-/home/DATA/games}"
+TL2DIR="${TL2DIR:-$_gamesdir/WineSteamberry/Torchlight II}"
 MEDIA1="${MEDIA1:-$TL2DIR/MEDIA}"
 MEDIA2="${MEDIA2:-$TL2DIR/mods/UNEARTHED_ARCANA/MEDIA}"
 
@@ -35,18 +37,44 @@ RELPATH2=
 #===============================================================================
 layout_to_xml() {
     # usage: layout_to_xml input_file output_file
-    cat "$1" | \
-    iconv -f UTF16 | \
-    sed -r '
+    
+    # guess the encoding:
+    ## could use a number of tools; 
+    # "file" is probably most standardized
+    # "encguess" depends only on perl
+    # "chardetect" depends on python-chardet
+    
+    local layout="$1"
+    local outfile="$2"
+    
+    local enc="$(file --brief --mime-encoding "$layout")"
+    local cmd=
+    
+    case $enc in
+        utf-16*) #just use utf-16 & let the BOM do its job
+            cmd="cat $layout | iconv -f UTF16"
+#             echo $cmd >&2
+            ;;
+        us-ascii) # does this take special processing?
+            cmd="cat $layout | iconv -f ASCII -t UTF8"
+            ;;
+        #add more if they come up;
+        *) cmd="cat $layout" ;;
+    esac
+                echo $cmd >&2
+
+#     cat "$1" | \ #
+#     iconv -f UTF16 | \ #
+    eval $cmd | sed -r '
 
     s#&#\&amp;#g
     s#(UNSIGNED) (INT)#\1_\2#g
 
-    s#^(\s*)<([^>]+)>([^:]+):(.*)\r$#\1<\2 label="\3">\4</\2>#
+    s#^(\s*)<([^>]+)>([^:]+):([^\r]*)[\r]?$#\1<\2 label="\3">\4</\2>#
 
 
     s#^(\s*)\[([^\]+)\]#\1<\2>#
-    ' > "$2"
+    ' > "$outfile"
 
 }
 #    sed -r \
@@ -91,6 +119,16 @@ xml_to_layout() {
 
         s#^(\s*)<([^>]+)>\r?$#\1[\2]#g
     ' > "$2"
+}
+
+#===  FUNCTION  ================================================================
+#        USAGE: layout_to_dot input.layout
+#  DESCRIPTION: Outputs a graphviz-format visualization of the layout
+#===============================================================================
+layout_to_dot() {
+    local input="$1"
+    local tag="LOGICGROUP" # for testing
+
 }
 
 #===  FUNCTION  ================================================================
@@ -202,6 +240,9 @@ ${BOLD}OPTIONS$OFF
     -h      Display this message
     -v      Display script version
 
+    -d      Dry run: report the operations that would be taken, but do not
+            actually read or write any files.
+    
     -q      Brief: Report only if the files differ.
     
     -s      Sort and Save: save the sorted layout files to the directory
@@ -256,11 +297,13 @@ ${BOLD}ENVIRONMENT VARIABLES$OFF
 #  Handle command line arguments
 #-----------------------------------------------------------------------
 
-while getopts ":hvqfso:LX" opt
+while getopts ":hvdqfso:LX" opt
 do
   case $opt in
 
     h)  usage; exit 0   ;;
+
+    d)  DRYRUN=1 ;;
 
     q)  BRIEF=1 ;;
 
@@ -289,17 +332,17 @@ shift $(($OPTIND-1))
 
 
 
-# make sure we have at least 1 argument (only first 2 are considered)
+## make sure we have at least 1 argument (only first 2 are considered)
 if [ $# -lt 1 ] ; then
     usage >&2
     exit 1
 fi
 
-# always do this
+## always do this
 RELPATH1="$1"
-# if the first filename starts with '/'...
+## if the first filename starts with '/'...
 if [[ "$1" =~ ^/ ]] ; then
-    # abspath given, so RELPATH and the file are the same
+    ## abspath given, so RELPATH and the file are the same
     file1="$1"
 else
     file1="$MEDIA1"/"$RELPATH1"
@@ -309,8 +352,8 @@ fi
 [[ -e "$file1" ]] || { echo "$__script_name: file $file1 could not be found." >&2;
                         exit 66 ; }
 
-# now check for PRINT_XML; we can interrupt normal operation
-# here if it's present
+## now check for PRINT_XML; we can interrupt normal operation
+## here if it's present
 if [[ "$PRINT_XML" ]] ; then
     if [[ "$SORT_AND_SAVE" ]] ; then
         xmlpipe=/tmp/lo2xmlpipe
@@ -330,30 +373,50 @@ elif [[ "$PRINT_LAYOUT" ]] ; then
     exit 0
 fi
 
+shift
+## if there are remaining filenames
+if [ $# -gt 0 ] ; then
 
-elif [ $# -eq 1 ] ; then
-    RELPATH1="$1"
-    RELPATH2="$RELPATH1"
-    #file1="$MEDIA1"/"$1"
-    #file2="$MEDIA2"/"$1"
+    RELPATH2="$1"
+    
+    ## check for abspath:
+    ## if the argument starts with '/'...
+    if [[ "$RELPATH" =~ ^/ ]] ; then
+        ## abspath given, so RELPATH and the file are the same
+        file2="$RELPATH"
+    else
+        file2="$MEDIA2"/"$RELPATH2"
+    fi
 else
-    RELPATH1="$1"
-    RELPATH2="$2"
-    #file1="$MEDIA1"/"$1"
-    #file2="$MEDIA2"/"$2"
+    ## infer relpath2 from single arg
+    
+    RELPATH2="$RELPATH1"
+    file2="$MEDIA2"/"$RELPATH2"
 fi
 
-file1="$MEDIA1"/"$RELPATH1"
-file2="$MEDIA2"/"$RELPATH2"
 
-[[ -e "$file1" ]] || { echo "$__script_name: file $file1 could not be found." >&2;
-                        exit 66 ; }
-[[ -e "$file2" ]] || { echo "$__script_name: file $file2 could not be found." >&2;
-                        exit 66 ; }
+## It seems not too difficult to mistakenly end up with file1 & file2 the same:
+if [[ "$file1" == "$file2" ]]; then
+    echo "$__script_name: the given filenames both refer to the same file: $file1" >&2
+    exit 66
+elif [[ ! -e "$file2" ]] ; then
+    ## and now check that file2 exists
+    echo "$__script_name: file $file2 could not be found." >&2
+    exit 66
+fi
 
-# check for existing output files and quit if they already exist
-# unless FORCE is enabled
-if [ -z "$FORCE" ] ; then
+
+# file1="$MEDIA1"/"$RELPATH1"
+# file2="$MEDIA2"/"$RELPATH2"
+
+# [[ -e "$file1" ]] || { echo "$__script_name: file $file1 could not be found." >&2;
+#                         exit 66 ; }
+# [[ -e "$file2" ]] || { echo "$__script_name: file $file2 could not be found." >&2;
+#                         exit 66 ; }
+
+## check for existing output files and quit if they already exist
+## unless FORCE is enabled
+if [[ ! "$FORCE" ]] ; then
     [[ -e "${OUTPUT_DIR}/MEDIA1/$RELPATH1" ]] && exit 0
     [[ -e "${OUTPUT_DIR}/MEDIA2/$RELPATH2" ]] && exit 0
 fi
@@ -361,7 +424,21 @@ fi
 #echo "$RELPATH1" >&2
 
 
-# execute main program
+[[ "$DRYRUN" ]] && {
+    echo "
+Base Layout file: $file1
+ Modified Layout: $file2
+ 
+Output Directory: $OUTPUT_DIR
+"
+
+exit 0
+    
+}
+
+
+
+## execute main program
 main "$file1" "$file2"
 
 ## Here's some notes on a fun, fancy, fast way to process lots of files

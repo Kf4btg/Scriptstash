@@ -17,10 +17,10 @@ DIFF=( dwdiff -c -R -w\\e[7\;91m -y\\e[7m )
 # for x in "${DIFF[@]}"; do echo "$x" ; done
 # exit 0
 VIEW=less
-MERGE=${DIFFPROG:-kompare}
+MERGE=${DIFFPROG:-vimdiff}
 
 ## makes coloring output easier
-BASHCOLORS="$HOME/.config/bash_colors"
+BASHCOLORS="$HOME/.profile.d/bash_colors"
 
 ## global var for PKGBUILD
 PB=""
@@ -41,12 +41,11 @@ main() {
         PB="$1"
     fi
 
-    
-    pkgname=${PKGNAME:-$(parse_name "$PB")}
+    pkgname=$(parse_name "$PB")
     [ "$pkgname" == "" ] && exit_not_pb "$PB"
 
     # pdir="$DLDIR/$pkgname"  #for testing
-    pdir=$(get_new_pb $pkgname)
+    pdir=$(get_new_pb ${pkgname//\"/})
     [ -f "$pdir/PKGBUILD" ] || exit_dl_error
     # echo "downloaded to $pdir"
 
@@ -81,8 +80,8 @@ replace() {
 merge() {
     local dl_dir="$*"
 
-    # test for merge tool
-    which "${MERGE%% *}" 2> /dev/null
+    # test for merge tool (strip off any provided args)
+    command -v "${MERGE%% *}" 2> /dev/null
     [ $? -eq 0 ] || exit_tool_not_found "merge"
 
     local dl_file="$dl_dir/PKGBUILD"
@@ -93,7 +92,8 @@ merge() {
     $MERGE "$dl_file" "$PB"
 
     ## check for changes
-    if echo $(md5sum "$dl_dir/._pbbackup" | cut -d" " -f1) "$PB" | md5sum --status -c ; then
+#     if echo $(md5sum "$dl_dir/._pbbackup" | cut -d" " -f1) "$PB" | md5sum --status -c ; then
+    if diff -q "$dl_dir/._pbbackup" "$PB" &>/dev/null ; then
         echo -e "${BGreen}>>>${Color_Off} PKGBUILD unchanged."
         prompt_replace "$dl_dir"
     else
@@ -128,7 +128,7 @@ prompt_action() {
     options=( "$A_REPLACE" "$A_MERGE" "$A_QUIT" )
     local MAX="${#options[@]}"
 
-    local yeller=$'\e[1;33m' ## well, this seems arbitrary and really hard to discover...
+    local yeller=$'\e[1;33m'
     local turnitoff=$'\e[m'
     local PS3="${yeller} >>> ${turnitoff}"
 
@@ -158,8 +158,10 @@ print_options() {
 
 # shellcheck disable=SC2090 disable=SC2086
 get_new_pb() {
+    set -x
+    
     local pkg=$1
-    local pdir="$DLDIR"/$pkg
+    local pdir="$DLDIR/$pkg"
 
     [ -d "$pdir" ] && rm -rf "$pdir"
     mkdir -p "$pdir"
@@ -172,8 +174,13 @@ get_new_pb() {
 
 parse_name() {
     local pb="$1"
+    
+    # how best to handle split packages?
+    # pkgbase and pkgname could be in any order, so have to check
+    # entire file for pkgbase first (i think...)
+	{ grep -m1 "^pkgbase" PKGBUILD || grep -m1 "^pkgname" PKGBUILD ; } | awk -F= '{ print $2 }'
 
-    awk -F '=' '/^pkgname/ { print $2 }' "$pb"
+#     awk -F '=' '/^pkgname/ { print $2 }' "$pb"
 }
 
 exit_no_args() {

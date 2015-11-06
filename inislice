@@ -2,13 +2,6 @@
 ## Slice a text file (generally a configuration file) into sections of
 ## arbitrary length and print only those which contain a certain expression.
 
-## TODO: next time I think of a nifty idea for script, remember to check
-##       MUCH MORE THOROUGHLY--BEFORE spending hours writing and hacking
-##       tearing my hair out--that there isn't already a core-util 
-##       preinstalled on pretty much every Linux system that already does
-##       exactly this, but better........
-##       Well, at least I learned a lot about sed.
-
 _usage() {
 
     read -d% -r usage <<_EOF && echo -e "$usage"
@@ -63,26 +56,28 @@ inislice() {
 
     read -r infile match header sep delim opts #<<< "$@"
     
-    echo $infile
-    echo $match 
-    echo $header 
-    echo $sep
-    echo $delim
-    echo $opts
+	if [[ "$JDEBUG" ]] ; then
+		echo 'FILE='$infile
+		echo 'MATCH='$match 
+		echo 'HEAD='$header 
+		echo 'SEP='$sep
+		echo 'DELIM='$delim
+		echo 'OPTS='$opts
+	fi
+	
     
     ## check that input file is valid ##
-    if [[ "$infile" == "-" ]] ; then
-        infile=/dev/fd/0
-    elif ! [ -r "$infile" ] ; then 
+    if ! [ -r "$infile" ] ; then 
         echo $'\e[1;31munable to read input file\e[0m'
         exit 101 
-    elif ! [ -f "$infile" ] ; then
-        echo $'\e[1;31minput must be a regular file\e[0m'
-        exit 102
+    #elif ! [ -f "$infile" ] ; then
+    #    echo $'\e[1;31minput must be a regular file\e[0m'
+    #    exit 102
     fi
 
     ## PARSE! ##
-    cat "$infile" | sed -n '
+    #cat "$infile" | 
+	sed -n '
 
     #if pat is section header
     /'${header}'/ { 
@@ -111,43 +106,46 @@ inislice() {
 '${delim}'
         }
     }
-    '
+    ' < $_infile
 }
 
-# while getopts :m:h:s:d:o: OPT; do
-#     case $OPT in
-#         m)
+#while getopts :m:h:s:d:o: OPT; do
+while getopts :hb OPT; do
+    case $OPT in
+        h)
+            #"$OPTARG"
+			_usage
+            ;;
+		b) hash little_boxes && USE_BOXES=1 ;; # not implemented yet
+#         m|+m)
 #             "$OPTARG"
 #             ;;
-#         h)
+#         s|+s)
 #             "$OPTARG"
 #             ;;
-#         s)
-# 	    set -f
-#             _sep=$OPTARG
-# 	    set +f
-#             ;;
-#         d)
+#         d|+d)
 #             "$OPTARG"
 #             ;;
-#         o)
+#         o|+o)
 #             "$OPTARG"
 #             ;;
-#         *)
-#             echo "${0##*/}: unrecognized option $OPTARG"
-#             exit 2
-#     esac
-# done
-# shift $(( OPTIND - 1 ))
-# OPTIND=1
+        *)
+			_usage
+            #echo "usage: ${0##*/} [+-m ARG] [+-h ARG] [+-s ARG] [+-d ARG] [+-o ARG} [--] ARGS..."
+            exit 2
+    esac
+done
+shift $(( OPTIND - 1 ))
+OPTIND=1
 
 #infile match header sep delim opts 
 if [ $# -lt 2 ] ; then _usage
 else # call the function with supplied or default parameters
-    _infile="$1"
+	# redirect file input to fd6
+	if [[ "$1" == "-" ]] ; then exec 6<&0; _infile=/dev/fd/6; else _infile="$1" ; fi
     set -f
     _match="$2"
-    _header=${3:-'^\[.*\]$'} 
+    _header=${3:-'\[.*\]'} 
     _sep=${4:-'^\s*$'}
     
     # if they specified a section-ending other than "blank line"

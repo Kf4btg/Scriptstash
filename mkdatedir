@@ -5,5 +5,37 @@
 _NOW=$(date -Is | sed -e 's/T/_/' -e 's/://g')
 
 # return this value without the time zone section
-echo ${_NOW%-*}
+currtime=${_NOW%-*}
 
+create_dir() {
+    
+    if [[ -z "$1" ]] ; then
+        mkdir "$currtime"
+    else
+        mkdir "$1"/"$currtime"
+    fi
+}
+
+
+base_dir=""
+
+while getopts :e OPT; do
+    case $OPT in
+        e) echo "$currtime"
+            exit 0
+            ;;
+    	*)
+            echo "usage: ${0##*/} [-e] [basedir]"
+            exit 2
+    esac
+
+done
+shift $(( OPTIND - 1 ))
+OPTIND=1
+
+
+[ $# -gt 0 ] && {
+    base_dir="$1"
+}
+
+create_dir "$base_dir"
